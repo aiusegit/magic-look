@@ -34,7 +34,7 @@ export class ConversationManager {
     }
 
     setCurrentConversation(conversation: ChatConversation) {
-        this._current = ChatConversationImpl.fromJSON(conversation);
+        this._current = ChatConversationImpl.fromJSON(conversation, this.chatManager.currentLLMProvider);
         this._conversations.push(this._current);
     }
 
@@ -47,7 +47,7 @@ export class ConversationManager {
         this._conversations = await this.getConversations(project.id);
 
         if (this.conversations.length > 0 && !!this.conversations[0]) {
-            this._current = ChatConversationImpl.fromJSON(this.conversations[0]);
+            this._current = ChatConversationImpl.fromJSON(this.conversations[0], this.chatManager.currentLLMProvider);
         } else {
             console.error('No conversations found, creating new conversation');
             this.startNewConversation();
@@ -60,7 +60,7 @@ export class ConversationManager {
             console.error('No conversations found');
             return [];
         }
-        const conversations = res?.map((c) => ChatConversationImpl.fromJSON(c));
+        const conversations = res?.map((c) => ChatConversationImpl.fromJSON(c, this.chatManager.currentLLMProvider));
 
         const sorted = conversations.sort((a, b) => {
             return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
@@ -95,7 +95,7 @@ export class ConversationManager {
             console.error('No conversation found with id', id);
             return;
         }
-        this._current = ChatConversationImpl.fromJSON(match);
+        this._current = ChatConversationImpl.fromJSON(match, this.chatManager.currentLLMProvider);
     }
 
     deleteConversation(id: string) {
@@ -117,7 +117,7 @@ export class ConversationManager {
         this.deleteConversationInStorage(id);
         if (this.current.id === id) {
             if (this.conversations.length > 0 && !!this.conversations[0]) {
-                this._current = ChatConversationImpl.fromJSON(this.conversations[0]);
+                this._current = ChatConversationImpl.fromJSON(this.conversations[0], this.chatManager.currentLLMProvider);
             } else {
                 this.startNewConversation();
             }
@@ -132,7 +132,7 @@ export class ConversationManager {
             console.error('No conversation found');
             return;
         }
-        const newMessage = UserChatMessageImpl.fromStringContent(content, context);
+        const newMessage = UserChatMessageImpl.fromStringContent(content, context, this.chatManager.currentLLMProvider);
         await this.addMessage(newMessage);
         return newMessage;
     }

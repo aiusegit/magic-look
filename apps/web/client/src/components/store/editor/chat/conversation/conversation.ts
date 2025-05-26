@@ -12,6 +12,7 @@ import type { Message } from 'ai';
 import { makeAutoObservable } from 'mobx';
 import { v4 as uuidv4 } from 'uuid';
 import { AssistantChatMessageImpl } from '../message/assistant';
+import type { LLMProvider } from '@onlook/models'; // Added import
 import { UserChatMessageImpl } from '../message/user';
 
 export type ChatMessageImpl = UserChatMessageImpl | AssistantChatMessageImpl;
@@ -23,6 +24,7 @@ export class ChatConversationImpl implements ChatConversation {
     messages: ChatMessageImpl[] = [];
     createdAt: string;
     updatedAt: string;
+    provider: LLMProvider; // Added provider property
 
     public tokenUsage: TokenUsage = {
         promptTokens: 0,
@@ -30,13 +32,15 @@ export class ChatConversationImpl implements ChatConversation {
         totalTokens: 0,
     };
 
-    private constructor(conversation: ChatConversation, fetchMessages = false) {
+    private constructor(conversation: ChatConversation, provider: LLMProvider, fetchMessages = false) {
         this.id = conversation.id;
         this.projectId = conversation.projectId;
         this.createdAt = conversation.createdAt;
         this.updatedAt = conversation.updatedAt;
         this.displayName = conversation.displayName;
+        this.provider = provider; // Assign provider
         if (fetchMessages) {
+            // Pass provider to getMessagesFromStorage, or rely on this.provider
             this.getMessagesFromStorage().then((messages) => {
                 this.messages = messages;
             });
@@ -44,26 +48,28 @@ export class ChatConversationImpl implements ChatConversation {
         makeAutoObservable(this);
     }
 
-    static create(projectId: string) {
+    static create(projectId: string, provider: LLMProvider) { // Added provider
         return new ChatConversationImpl({
             id: uuidv4(),
             projectId,
             displayName: null,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-        });
+        }, provider); // Pass provider
     }
 
-    static fromJSON(conversation: ChatConversation) {
-        return new ChatConversationImpl(conversation, true);
+    static fromJSON(conversation: ChatConversation, provider: LLMProvider) { // Added provider
+        return new ChatConversationImpl(conversation, provider, true); // Pass provider
     }
 
     async getMessagesFromStorage(): Promise<ChatMessageImpl[]> {
         const messages = await api.chat.getMessages.query({ conversationId: this.id });
         const messagesImpl = messages.map((m) => {
             if (m.role === ChatMessageRole.USER) {
-                return UserChatMessageImpl.fromJSON(m as UserChatMessage);
+                // Now pass this.provider when reconstructing UserChatMessageImpl
+                return UserChatMessageImpl.fromJSON(m as UserChatMessage, this.provider);
             } else if (m.role === ChatMessageRole.ASSISTANT) {
+                // AssistantChatMessageImpl might also need provider if it depends on it
                 return AssistantChatMessageImpl.fromJSON(m as AssistantChatMessage);
             }
         }).filter((m) => m !== null) as ChatMessageImpl[];

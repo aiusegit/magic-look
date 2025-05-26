@@ -8,12 +8,36 @@ export enum ChatType {
     EDIT = 'edit',
 }
 
-const model = await initModel(LLMProvider.ANTHROPIC, CLAUDE_MODELS.SONNET_4);
-
 export async function POST(req: Request) {
-    const { messages, maxSteps, chatType } = await req.json();
+    const { messages, maxSteps, chatType, provider, modelId: requestedModelId } = await req.json();
 
-    const systemPrompt = chatType === ChatType.CREATE ? getCreatePageSystemPrompt() : getSystemPrompt();
+    const currentLLMProvider = provider as LLMProvider;
+
+    // Validate provider
+    if (!currentLLMProvider || !Object.values(LLMProvider).includes(currentLLMProvider)) {
+        throw new Error(`Invalid LLMProvider: ${provider}`);
+    }
+
+    let currentModelId = requestedModelId;
+
+    // Set a default model for Anthropic if no modelId is provided
+    if (currentLLMProvider === LLMProvider.ANTHROPIC && !currentModelId) {
+        currentModelId = CLAUDE_MODELS.SONNET_4;
+    }
+    // For Gemini (and potentially other providers in the future), modelId is strictly required.
+    else if (currentLLMProvider === LLMProvider.GEMINI && !currentModelId) {
+        // Providing a default Gemini model or throwing an error are options.
+        // Let's throw an error to enforce client-side model selection for Gemini.
+        throw new Error('modelId is required for Gemini provider.');
+    }
+    // If it's another provider and no modelId, it's an error.
+    else if (!currentModelId) {
+        throw new Error(`modelId is required for provider: ${currentLLMProvider}`);
+    }
+    
+    const model = await initModel(currentLLMProvider, currentModelId);
+
+    const systemPrompt = chatType === ChatType.CREATE ? getCreatePageSystemPrompt(currentLLMProvider) : getSystemPrompt(currentLLMProvider);
 
     const result = streamText({
         model,

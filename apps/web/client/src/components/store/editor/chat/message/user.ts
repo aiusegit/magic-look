@@ -1,4 +1,5 @@
 import { getHydratedUserMessage } from '@onlook/ai/src/prompt/provider';
+import type { LLMProvider } from '@onlook/models';
 import type { ChatMessageContext } from '@onlook/models/chat';
 import { ChatMessageRole, type UserChatMessage } from '@onlook/models/chat';
 import type { Message, TextPart } from 'ai';
@@ -10,21 +11,26 @@ export class UserChatMessageImpl implements UserChatMessage {
     content: string;
     context: ChatMessageContext[] = [];
     parts: TextPart[] = [];
+    provider: LLMProvider;
 
-    constructor(content: string, context: ChatMessageContext[] = []) {
+    constructor(content: string, context: ChatMessageContext[] = [], provider: LLMProvider) {
         this.id = uuidv4();
         this.content = content;
         this.parts = [{ type: 'text', text: content }];
         this.context = context;
+        this.provider = provider;
     }
 
-    static fromJSON(data: UserChatMessage): UserChatMessageImpl {
-        const message = new UserChatMessageImpl(data.content, data.context);
+    static fromJSON(data: UserChatMessage, provider: LLMProvider): UserChatMessageImpl {
+        // Assuming UserChatMessage might not have provider, so it's passed explicitly
+        const message = new UserChatMessageImpl(data.content, data.context, provider);
         message.id = data.id;
         return message;
     }
 
     static toJSON(message: UserChatMessageImpl): UserChatMessage {
+        // Note: The UserChatMessage type might need to be updated if provider needs to be serialized.
+        // For now, following existing structure and not adding provider to JSON output.
         return {
             id: message.id,
             role: message.role,
@@ -34,16 +40,16 @@ export class UserChatMessageImpl implements UserChatMessage {
         };
     }
 
-    static fromMessage(message: Message, context: ChatMessageContext[]): UserChatMessageImpl {
-        return new UserChatMessageImpl(message.content, context);
+    static fromMessage(message: Message, context: ChatMessageContext[], provider: LLMProvider): UserChatMessageImpl {
+        return new UserChatMessageImpl(message.content, context, provider);
     }
 
-    static fromStringContent(content: string, context: ChatMessageContext[]): UserChatMessageImpl {
-        return new UserChatMessageImpl(content, context);
+    static fromStringContent(content: string, context: ChatMessageContext[], provider: LLMProvider): UserChatMessageImpl {
+        return new UserChatMessageImpl(content, context, provider);
     }
 
     toStreamMessage(): Message {
-        return getHydratedUserMessage(this.id, this.content, this.context);
+        return getHydratedUserMessage(this.id, this.content, this.context, this.provider);
     }
 
     updateContent(content: string) {

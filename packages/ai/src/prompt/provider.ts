@@ -1,3 +1,4 @@
+import { LLMProvider } from '@onlook/models';
 import type {
     ChatMessageContext,
     ErrorMessageContext,
@@ -16,10 +17,12 @@ import { SUMMARY_PROMPTS } from './summary';
 
 const shouldWrapXml = true;
 
-export function getSystemPrompt() {
+export function getSystemPrompt(provider?: LLMProvider) {
     let prompt = '';
 
-    if (shouldWrapXml) {
+    const useXml = provider === LLMProvider.GEMINI ? false : shouldWrapXml;
+
+    if (useXml) {
         prompt += wrapXml('role', EDIT_PROMPTS.system);
         prompt += wrapXml('search-replace-rules', EDIT_PROMPTS.searchReplaceRules);
         prompt += wrapXml(
@@ -35,10 +38,12 @@ export function getSystemPrompt() {
     return prompt;
 }
 
-export function getCreatePageSystemPrompt() {
-    let prompt = getSystemPrompt() + '\n\n';
+export function getCreatePageSystemPrompt(provider?: LLMProvider) {
+    let prompt = getSystemPrompt(provider) + '\n\n';
 
-    if (shouldWrapXml) {
+    const useXml = provider === LLMProvider.GEMINI ? false : shouldWrapXml;
+
+    if (useXml) {
         prompt += wrapXml('rules', PAGE_SYSTEM_PROMPT.rules);
     } else {
         prompt += PAGE_SYSTEM_PROMPT.rules;
@@ -64,6 +69,7 @@ export function getHydratedUserMessage(
     id: string,
     content: UserContent,
     context: ChatMessageContext[],
+    provider?: LLMProvider,
 ): Message {
     const files = context.filter((c) => c.type === 'file').map((c) => c);
     const highlights = context.filter((c) => c.type === 'highlight').map((c) => c);
@@ -72,27 +78,29 @@ export function getHydratedUserMessage(
     const images = context.filter((c) => c.type === 'image').map((c) => c);
 
     let prompt = '';
-    let contextPrompt = getFilesContent(files, highlights);
+    const useXml = provider === LLMProvider.GEMINI ? false : shouldWrapXml;
+
+    let contextPrompt = getFilesContent(files, highlights, provider);
     if (contextPrompt) {
-        if (shouldWrapXml) {
+        if (useXml) {
             contextPrompt = wrapXml('context', contextPrompt);
         }
         prompt += contextPrompt;
     }
 
     if (errors.length > 0) {
-        let errorPrompt = getErrorsContent(errors);
+        let errorPrompt = getErrorsContent(errors, provider);
         prompt += errorPrompt;
     }
 
     if (project.length > 0) {
         const projectContext = project[0];
         if (projectContext) {
-            prompt += getProjectContext(projectContext);
+            prompt += getProjectContext(projectContext, provider);
         }
     }
 
-    if (shouldWrapXml) {
+    if (useXml) {
         const textContent =
             typeof content === 'string'
                 ? content
@@ -122,6 +130,7 @@ export function getHydratedUserMessage(
 export function getFilesContent(
     files: FileMessageContext[],
     highlights: HighlightMessageContext[],
+    provider?: LLMProvider,
 ) {
     if (files.length === 0) {
         return '';
@@ -134,9 +143,10 @@ export function getFilesContent(
         filePrompt += `${FENCE.code.start}${getLanguageFromFilePath(file.path)}\n`;
         filePrompt += file.content;
         filePrompt += `\n${FENCE.code.end}\n`;
-        filePrompt += getHighlightsContent(file.path, highlights);
+        filePrompt += getHighlightsContent(file.path, highlights, provider);
 
-        if (shouldWrapXml) {
+        const useXml = provider === LLMProvider.GEMINI ? false : shouldWrapXml;
+        if (useXml) {
             filePrompt = wrapXml(files.length > 1 ? `file-${index}` : 'file', filePrompt);
         }
         prompt += filePrompt;
@@ -146,7 +156,7 @@ export function getFilesContent(
     return prompt;
 }
 
-export function getErrorsContent(errors: ErrorMessageContext[]) {
+export function getErrorsContent(errors: ErrorMessageContext[], provider?: LLMProvider) {
     if (errors.length === 0) {
         return '';
     }
@@ -155,7 +165,8 @@ export function getErrorsContent(errors: ErrorMessageContext[]) {
         prompt += `${error.content}\n`;
     }
 
-    if (prompt.trim().length > 0 && shouldWrapXml) {
+    const useXml = provider === LLMProvider.GEMINI ? false : shouldWrapXml;
+    if (prompt.trim().length > 0 && useXml) {
         prompt = wrapXml('errors', prompt);
     }
     return prompt;
@@ -165,19 +176,24 @@ export function getLanguageFromFilePath(filePath: string): string {
     return filePath.split('.').pop() || '';
 }
 
-export function getHighlightsContent(filePath: string, highlights: HighlightMessageContext[]) {
+export function getHighlightsContent(
+    filePath: string,
+    highlights: HighlightMessageContext[],
+    provider?: LLMProvider,
+) {
     const fileHighlights = highlights.filter((h) => h.path === filePath);
     if (fileHighlights.length === 0) {
         return '';
     }
     let prompt = `${CONTEXT_PROMPTS.highlightPrefix}\n`;
     let index = 1;
+    const useXml = provider === LLMProvider.GEMINI ? false : shouldWrapXml;
     for (const highlight of fileHighlights) {
         let highlightPrompt = `${filePath}#L${highlight.start}:L${highlight.end}\n`;
         highlightPrompt += `${FENCE.code.start}\n`;
         highlightPrompt += highlight.content;
         highlightPrompt += `\n${FENCE.code.end}\n`;
-        if (shouldWrapXml) {
+        if (useXml) {
             highlightPrompt = wrapXml(
                 fileHighlights.length > 1 ? `highlight-${index}` : 'highlight',
                 highlightPrompt,
@@ -189,10 +205,11 @@ export function getHighlightsContent(filePath: string, highlights: HighlightMess
     return prompt;
 }
 
-export function getSummaryPrompt() {
+export function getSummaryPrompt(provider?: LLMProvider) {
     let prompt = '';
+    const useXml = provider === LLMProvider.GEMINI ? false : shouldWrapXml;
 
-    if (shouldWrapXml) {
+    if (useXml) {
         prompt += wrapXml('summary-rules', SUMMARY_PROMPTS.rules);
         prompt += wrapXml('summary-guidelines', SUMMARY_PROMPTS.guidelines);
         prompt += wrapXml('summary-format', SUMMARY_PROMPTS.format);
@@ -220,9 +237,10 @@ export function getSummaryExampleConversation() {
     return prompt;
 }
 
-export function getProjectContext(project: ProjectMessageContext) {
+export function getProjectContext(project: ProjectMessageContext, provider?: LLMProvider) {
     const content = `${CONTEXT_PROMPTS.projectContextPrefix} ${project.path}`;
-    if (shouldWrapXml) {
+    const useXml = provider === LLMProvider.GEMINI ? false : shouldWrapXml;
+    if (useXml) {
         return wrapXml('project-info', content);
     }
     return content;
