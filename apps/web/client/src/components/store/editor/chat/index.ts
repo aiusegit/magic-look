@@ -6,6 +6,7 @@ import type { ParsedError } from '@onlook/utility';
 import type { Message } from 'ai';
 import { makeAutoObservable } from 'mobx';
 import type { EditorEngine } from '../engine';
+import { CLAUDE_MODELS, LLMProvider } from '@onlook/models'; // Added import
 import { ChatCodeManager } from './code';
 import { ChatContext } from './context';
 import { ConversationManager } from './conversation';
@@ -18,6 +19,10 @@ export class ChatManager {
     code: ChatCodeManager;
     context: ChatContext;
     suggestions: SuggestionManager;
+
+    // Assume these are set by UI or other logic
+    public currentLLMProvider: LLMProvider = LLMProvider.ANTHROPIC; // Placeholder
+    public currentModelId: string = CLAUDE_MODELS.SONNET_4; // Placeholder
 
     constructor(
         private editorEngine: EditorEngine,
@@ -145,5 +150,35 @@ export class ChatManager {
         this.code.clear();
         this.context.clear();
         this.conversation.clear();
+    }
+
+    public setLLMProvider(provider: LLMProvider) {
+        if (this.currentLLMProvider !== provider) {
+            this.currentLLMProvider = provider;
+            // When provider changes, set a default model for that provider
+            if (provider === LLMProvider.ANTHROPIC) {
+                this.currentModelId = CLAUDE_MODELS.SONNET_4; // Or your preferred default
+            } else if (provider === LLMProvider.GEMINI) {
+                // Assuming GEMINI_MODELS is available and has GEMINI_PRO
+                this.currentModelId = 'gemini-pro'; // Replace with actual GEMINI_MODELS.GEMINI_PRO if available
+            }
+            console.log(`LLM Provider changed to: ${provider}, Model reset to: ${this.currentModelId}`);
+        }
+    }
+
+    public setModelId(modelId: string) {
+        // Ensure the selected model is valid for the current provider
+        if (this.currentLLMProvider === LLMProvider.ANTHROPIC && !Object.values(CLAUDE_MODELS).includes(modelId as CLAUDE_MODELS)) {
+            console.warn(`Attempted to set invalid Anthropic model: ${modelId}`);
+            return;
+        } else if (this.currentLLMProvider === LLMProvider.GEMINI && modelId !== 'gemini-pro') { // Assuming only gemini-pro for now
+             console.warn(`Attempted to set invalid Gemini model: ${modelId}`);
+            return;
+        }
+
+        if (this.currentModelId !== modelId) {
+            this.currentModelId = modelId;
+            console.log(`LLM Model changed to: ${modelId}`);
+        }
     }
 }

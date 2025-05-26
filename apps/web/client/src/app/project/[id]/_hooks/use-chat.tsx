@@ -39,6 +39,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         return chat.reload({
             body: {
                 chatType: type,
+                provider: editorEngine.chat.currentLLMProvider,
+                modelId: editorEngine.chat.currentModelId, // Use modelId as expected by the API
             },
         });
     };

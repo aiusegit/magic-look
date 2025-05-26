@@ -1,12 +1,14 @@
 import { useEditorEngine } from '@/components/store/editor';
 import { useUserManager } from '@/components/store/user';
-import type { ChatSettings } from '@onlook/models';
-import { EditorTabValue } from '@onlook/models';
+import { CLAUDE_MODELS, EditorTabValue, GEMINI_MODELS, LLMProvider, type ChatSettings } from '@onlook/models'; // Added imports
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
+    DropdownMenuSub,
+    DropdownMenuSubContent,
+    DropdownMenuSubTrigger,
     DropdownMenuTrigger,
 } from '@onlook/ui/dropdown-menu';
 import { Icons } from '@onlook/ui/icons';
@@ -25,8 +27,19 @@ export const ChatPanelDropdown = observer(({
     const userManager = useUserManager();
     const editorEngine = useEditorEngine();
 
+    const chatManager = editorEngine.chat;
+    const currentProvider = chatManager.currentLLMProvider;
+    const currentModel = chatManager.currentModelId;
+
     const chatSettings = userManager.settings.settings.chat;
     const selectedTab = editorEngine.state.rightPanelTab;
+
+    const providerDisplayNames = {
+        [LLMProvider.ANTHROPIC]: 'Anthropic',
+        [LLMProvider.GEMINI]: 'Gemini',
+    };
+
+    const availableModels = currentProvider === LLMProvider.ANTHROPIC ? CLAUDE_MODELS : GEMINI_MODELS;
 
     const updateChatSettings = (e: React.MouseEvent, settings: Partial<ChatSettings>) => {
         e.preventDefault();
@@ -108,6 +121,64 @@ export const ChatPanelDropdown = observer(({
                     />
                     Show mini chat
                 </DropdownMenuItem> */}
+                <DropdownMenuSeparator />
+
+                {/* Provider Selection */}
+                <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                        <Icons.Users className="mr-2 h-4 w-4" /> {/* Example Icon */}
+                        <span>Provider: {providerDisplayNames[currentProvider]}</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                        <DropdownMenuItem
+                            onClick={(e) => {
+                                e.preventDefault();
+                                chatManager.setLLMProvider(LLMProvider.ANTHROPIC);
+                            }}
+                        >
+                            Anthropic
+                            {currentProvider === LLMProvider.ANTHROPIC && (
+                                <Icons.Check className="ml-auto h-4 w-4" />
+                            )}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            onClick={(e) => {
+                                e.preventDefault();
+                                chatManager.setLLMProvider(LLMProvider.GEMINI);
+                            }}
+                        >
+                            Gemini
+                            {currentProvider === LLMProvider.GEMINI && (
+                                <Icons.Check className="ml-auto h-4 w-4" />
+                            )}
+                        </DropdownMenuItem>
+                    </DropdownMenuSubContent>
+                </DropdownMenuSub>
+
+                {/* Model Selection */}
+                <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                        <Icons.Cpu className="mr-2 h-4 w-4" /> {/* Example Icon */}
+                        <span>Model: {currentModel}</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                        {Object.values(availableModels).map((modelId) => (
+                            <DropdownMenuItem
+                                key={modelId}
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    chatManager.setModelId(modelId);
+                                }}
+                            >
+                                {modelId}
+                                {currentModel === modelId && (
+                                    <Icons.Check className="ml-auto h-4 w-4" />
+                                )}
+                            </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuSubContent>
+                </DropdownMenuSub>
+
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setIsChatHistoryOpen(!isChatHistoryOpen)}>
                     <Icons.CounterClockwiseClock className="mr-2 h-4 w-4" />
